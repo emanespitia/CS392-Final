@@ -7,7 +7,23 @@
 <div class="container py-4">
     <h1 class="mb-4">Store Product Manager</h1>
     <p class="text-muted">
+        Manage products and ask AI questions powered by Gemini + MongoDB.
     </p>
+
+    <div class="card mb-4">
+        <div class="card-header">Ask AI About Products</div>
+        <div class="card-body">
+            <form id="aiForm" class="row g-2">
+                <div class="col-md-9">
+                    <input id="aiQuestion" class="form-control" placeholder="Example: Show me all electronics under $500" required />
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-dark w-100">Ask Gemini</button>
+                </div>
+            </form>
+            <div id="aiAnswerBox" class="alert alert-info mt-3 d-none"></div>
+        </div>
+    </div>
 
     <div class="row g-4">
         <div class="col-lg-4">
@@ -105,8 +121,10 @@
 
 <script>
     const apiBase = "/api/products";
+    const aiApiBase = "/api/ai/products/ask";
     const tableBody = document.getElementById("productsTableBody");
     const statusMessage = document.getElementById("statusMessage");
+    const aiAnswerBox = document.getElementById("aiAnswerBox");
 
     function showMessage(text, isError = false) {
         statusMessage.textContent = text;
@@ -133,6 +151,11 @@
             `;
             tableBody.appendChild(row);
         }
+    }
+
+    function showAiAnswer(text, isError = false) {
+        aiAnswerBox.textContent = text;
+        aiAnswerBox.className = `alert mt-3 ${isError ? "alert-danger" : "alert-info"}`;
     }
 
     document.getElementById("refreshBtn").addEventListener("click", async () => {
@@ -209,6 +232,46 @@
         event.target.reset();
         await loadProducts();
         showMessage("Product deleted successfully.");
+    });
+
+    document.getElementById("aiForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const question = document.getElementById("aiQuestion").value.trim();
+
+        if (!question) {
+            showAiAnswer("Please enter a question.", true);
+            return;
+        }
+
+        const response = await fetch(aiApiBase, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ question })
+        });
+
+        if (!response.ok) {
+            showAiAnswer("AI request failed. Check Gemini API configuration.", true);
+            return;
+        }
+
+        const result = await response.json();
+        showAiAnswer(result.aiAnswer ?? "No AI answer returned.");
+
+        if (Array.isArray(result.products)) {
+            tableBody.innerHTML = "";
+            for (const product of result.products) {
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td>${product.id ?? ""}</td>
+                    <td>${product.name ?? ""}</td>
+                    <td>${product.category ?? ""}</td>
+                    <td>$${Number(product.price ?? 0).toFixed(2)}</td>
+                    <td>${product.inStock ? "Yes" : "No"}</td>
+                `;
+                tableBody.appendChild(row);
+            }
+            showMessage(`AI returned ${result.products.length} product(s).`);
+        }
     });
 
     loadProducts().catch((error) => showMessage(error.message, true));

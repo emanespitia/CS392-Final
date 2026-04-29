@@ -21,4 +21,7 @@ public class Product
 
     [BsonElement("inStock")]
     public bool InStock { get; set; }
+
+    [BsonElement("tags")]
+    public List<string> Tags { get; set; } = [];
 }
